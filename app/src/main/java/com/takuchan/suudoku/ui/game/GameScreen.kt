@@ -4,6 +4,10 @@ import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import com.takuchan.suudoku.logic.GameMode
+import com.takuchan.suudoku.logic.Language
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -75,9 +79,20 @@ fun GameScreen(
                 onCellClick = viewModel::onCellSelected
             )
 
+            if (uiState.gameMode == GameMode.MANUAL) {
+                Button(
+                    onClick = { viewModel.submitBoard() },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(getSubmitText(uiState.language), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
             NumberPad(
                 onNumberClick = viewModel::onNumberInput,
-                onEraseClick = { viewModel.onNumberInput(0) }
+                onEraseClick = { viewModel.onNumberInput(0) },
+                showErase = uiState.gameMode == GameMode.MANUAL
             )
         }
     }
@@ -85,10 +100,18 @@ fun GameScreen(
     if (uiState.gameStatus != GameStatus.PLAYING) {
         GameResultDialog(
             status = uiState.gameStatus,
+            language = uiState.language,
             onRestart = { viewModel.resetGame() },
             onExit = onBack
         )
     }
+}
+
+fun getSubmitText(language: Language): String = when (language) {
+    Language.ENGLISH -> "Submit & Check"
+    Language.JAPANESE -> "採点する"
+    Language.CHINESE -> "提交并检查"
+    Language.KOREAN -> "제출 및 확인"
 }
 
 @Composable
@@ -244,7 +267,8 @@ fun SudokuCellView(
 @Composable
 fun NumberPad(
     onNumberClick: (Int) -> Unit,
-    onEraseClick: () -> Unit
+    onEraseClick: () -> Unit,
+    showErase: Boolean
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -274,23 +298,27 @@ fun NumberPad(
                     modifier = Modifier.weight(1f)
                 )
             }
-            Surface(
-                onClick = onEraseClick,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(64.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.tertiary,
-                contentColor = MaterialTheme.colorScheme.onTertiary,
-                shadowElevation = 4.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.Backspace, 
-                        contentDescription = "Erase",
-                        modifier = Modifier.size(28.dp)
-                    )
+            if (showErase) {
+                Surface(
+                    onClick = onEraseClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(64.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary,
+                    shadowElevation = 4.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.Backspace,
+                            contentDescription = "Erase",
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }
@@ -319,40 +347,93 @@ fun NumberButton(
 @Composable
 fun GameResultDialog(
     status: GameStatus,
+    language: Language,
     onRestart: () -> Unit,
     onExit: () -> Unit
 ) {
+    val title = when (status) {
+        GameStatus.WON -> when (language) {
+            Language.ENGLISH -> "🌟 MAGNIFICENT VICTORY! 🌟"
+            Language.JAPANESE -> "🌟 素晴らしい！完全勝利です！ 🌟"
+            Language.CHINESE -> "🌟 绝妙的胜利！ 🌟"
+            Language.KOREAN -> "🌟 멋진 승리입니다! 🌟"
+        }
+        else -> when (language) {
+            Language.ENGLISH -> "Game Over"
+            Language.JAPANESE -> "ゲームオーバー"
+            Language.CHINESE -> "游戏结束"
+            Language.KOREAN -> "게임 오버"
+        }
+    }
+
+    val message = when (status) {
+        GameStatus.WON -> when (language) {
+            Language.ENGLISH -> "You are a true Sudoku Master! Your logical thinking is unparalleled. The world stands in awe of your brilliance!"
+            Language.JAPANESE -> "あなたは真の数独マスターです！その論理的思考は類を見ません。あなたの才能に世界が驚いています！"
+            Language.CHINESE -> "你是真正的数独大师！你的逻辑思维举世无双。全世界都为你闪耀的才华感到惊叹！"
+            Language.KOREAN -> "당신은 진정한 스도쿠 마스터입니다! 당신의 논리적 사고는 타의 추종을 불허합니다. 당신의 천재성에 온 세상이 경탄하고 있습니다!"
+        }
+        else -> when (language) {
+            Language.ENGLISH -> "Don't lose heart! Every mistake is a step toward perfection. Try once more!"
+            Language.JAPANESE -> "諦めないで！失敗は成功への一歩です。もう一度挑戦しましょう！"
+            Language.CHINESE -> "不要灰心！每一次错误都是通向完美的一步。再试一次吧！"
+            Language.KOREAN -> "낙심하지 마세요! 모든 실수는 완벽을 향한 한 걸음입니다. 다시 한 번 도전해 보세요!"
+        }
+    }
+
+    val buttonText = when (language) {
+        Language.ENGLISH -> "Play Again"
+        Language.JAPANESE -> "もう一度遊ぶ"
+        Language.CHINESE -> "再玩一次"
+        Language.KOREAN -> "다시 플레이"
+    }
+
+    val exitText = when (language) {
+        Language.ENGLISH -> "Exit"
+        Language.JAPANESE -> "終了"
+        Language.CHINESE -> "退出"
+        Language.KOREAN -> "나가기"
+    }
+
     AlertDialog(
         onDismissRequest = { },
         icon = {
             if (status == GameStatus.WON) {
-                Text("🏆", fontSize = 48.sp)
+                Text("👑", fontSize = 64.sp)
             } else {
-                Text("❌", fontSize = 48.sp)
+                Text("💫", fontSize = 64.sp)
             }
         },
         title = {
-            Text(if (status == GameStatus.WON) "Victory!" else "Defeat")
+            Text(
+                text = title,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         },
         text = {
             Text(
-                if (status == GameStatus.WON) 
-                    "You've mastered this Sudoku! Ready for another challenge?" 
-                else 
-                    "Too many mistakes! Don't give up, try again."
+                text = message,
+                fontSize = 18.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                lineHeight = 24.sp
             )
         },
         confirmButton = {
             Button(
                 onClick = onRestart,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Play Again")
+                Text(buttonText)
             }
         },
         dismissButton = {
-            TextButton(onClick = onExit) {
-                Text("Exit")
+            TextButton(
+                onClick = onExit,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(exitText)
             }
         }
     )

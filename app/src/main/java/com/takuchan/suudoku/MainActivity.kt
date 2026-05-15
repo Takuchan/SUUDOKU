@@ -32,11 +32,14 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = navController, startDestination = "home") {
                     composable("home") {
                         HomeScreen(
+                            language = settingsState.language,
                             onStartGame = { difficulty ->
                                 gameViewModel.startGame(
                                     difficulty = difficulty,
                                     maxMistakes = settingsState.maxMistakes,
-                                    isTimerEnabled = settingsState.isTimerEnabled
+                                    isTimerEnabled = settingsState.isTimerEnabled,
+                                    gameMode = settingsState.gameMode,
+                                    language = settingsState.language
                                 )
                                 navController.navigate("game")
                             },

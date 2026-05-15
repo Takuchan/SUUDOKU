@@ -1,5 +1,7 @@
 package com.takuchan.suudoku.ui.settings
 
+import com.takuchan.suudoku.logic.GameMode
+import com.takuchan.suudoku.logic.Language
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,19 +16,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val language = uiState.language
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("SETTINGS", fontWeight = FontWeight.Black) },
+                title = { Text(getSettingsTitle(language), fontWeight = FontWeight.Black) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
@@ -52,12 +55,12 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Enable Timer",
+                            text = getTimerTitle(language),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Track your time while solving",
+                            text = getTimerDesc(language),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -76,12 +79,12 @@ fun SettingsScreen(
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = "Maximum Mistakes",
+                        text = getMistakesTitle(language),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Allowed mistakes: ${uiState.maxMistakes}",
+                        text = "${getMistakesAllowed(language)}: ${uiState.maxMistakes}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -94,8 +97,139 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            SettingsCard {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = getGameModeTitle(language),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = getGameModeDesc(language),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        GameMode.values().forEach { mode ->
+                            FilterChip(
+                                selected = uiState.gameMode == mode,
+                                onClick = { viewModel.setGameMode(mode) },
+                                label = { Text(getGameModeName(mode, language)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            SettingsCard {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = getLanguageTitle(language),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Language.values().forEach { lang ->
+                            FilterChip(
+                                selected = uiState.language == lang,
+                                onClick = { viewModel.setLanguage(lang) },
+                                label = { Text(lang.displayName) }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+fun getSettingsTitle(language: Language) = when(language) {
+    Language.ENGLISH -> "SETTINGS"
+    Language.JAPANESE -> "設定"
+    Language.CHINESE -> "设置"
+    Language.KOREAN -> "설정"
+}
+
+fun getTimerTitle(language: Language) = when(language) {
+    Language.ENGLISH -> "Enable Timer"
+    Language.JAPANESE -> "タイマーを表示"
+    Language.CHINESE -> "启用计时器"
+    Language.KOREAN -> "타이머 활성화"
+}
+
+fun getTimerDesc(language: Language) = when(language) {
+    Language.ENGLISH -> "Track your time while solving"
+    Language.JAPANESE -> "解くまでの時間を計測します"
+    Language.CHINESE -> "追踪解题时间"
+    Language.KOREAN -> "해결 시간을 추적합니다"
+}
+
+fun getMistakesTitle(language: Language) = when(language) {
+    Language.ENGLISH -> "Maximum Mistakes"
+    Language.JAPANESE -> "ミスの許容回数"
+    Language.CHINESE -> "最大错误次数"
+    Language.KOREAN -> "최대 실수 횟수"
+}
+
+fun getMistakesAllowed(language: Language) = when(language) {
+    Language.ENGLISH -> "Allowed mistakes"
+    Language.JAPANESE -> "許容されるミス"
+    Language.CHINESE -> "允许的错误"
+    Language.KOREAN -> "허용된 실수"
+}
+
+fun getGameModeTitle(language: Language) = when(language) {
+    Language.ENGLISH -> "Game Mode"
+    Language.JAPANESE -> "ゲームモード"
+    Language.CHINESE -> "游戏模式"
+    Language.KOREAN -> "게임 모드"
+}
+
+fun getGameModeDesc(language: Language) = when(language) {
+    Language.ENGLISH -> "Choose how you want to play"
+    Language.JAPANESE -> "遊び方を選択してください"
+    Language.CHINESE -> "选择您的游戏方式"
+    Language.KOREAN -> "플레이 방식을 선택하세요"
+}
+
+fun getGameModeName(mode: GameMode, language: Language) = when(mode) {
+    GameMode.INSTANT -> when(language) {
+        Language.ENGLISH -> "Instant"
+        Language.JAPANESE -> "即時判定"
+        Language.CHINESE -> "即时判定"
+        Language.KOREAN -> "즉시 판정"
+    }
+    GameMode.MANUAL -> when(language) {
+        Language.ENGLISH -> "Manual"
+        Language.JAPANESE -> "採点モード"
+        Language.CHINESE -> "手动检查"
+        Language.KOREAN -> "수동 채점"
+    }
+}
+
+fun getLanguageTitle(language: Language) = when(language) {
+    Language.ENGLISH -> "Language"
+    Language.JAPANESE -> "言語"
+    Language.CHINESE -> "语言"
+    Language.KOREAN -> "언어"
 }
 
 @Composable

@@ -21,6 +21,17 @@ data class SudokuBoard(
     operator fun get(row: Int, col: Int): SudokuCell = cells[row][col]
 }
 
+enum class GameMode {
+    INSTANT, MANUAL
+}
+
+enum class Language(val displayName: String, val code: String) {
+    ENGLISH("English", "en"),
+    JAPANESE("日本語", "ja"),
+    CHINESE("中文", "zh"),
+    KOREAN("한국어", "ko")
+}
+
 enum class GameStatus {
     PLAYING,
     WON,

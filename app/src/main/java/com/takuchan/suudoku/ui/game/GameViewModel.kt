@@ -20,7 +20,9 @@ data class GameUiState(
     val gameStatus: GameStatus = GameStatus.PLAYING,
     val difficulty: Difficulty = Difficulty.BEGINNER,
     val isTimerRunning: Boolean = false,
-    val isTimerEnabled: Boolean = true
+    val isTimerEnabled: Boolean = true,
+    val gameMode: GameMode = GameMode.INSTANT,
+    val language: Language = Language.JAPANESE
 )
 
 class GameViewModel : ViewModel() {
@@ -30,7 +32,13 @@ class GameViewModel : ViewModel() {
     private val generator = SudokuGenerator()
     private var timerJob: Job? = null
 
-    fun startGame(difficulty: Difficulty, maxMistakes: Int = 3, isTimerEnabled: Boolean = true) {
+    fun startGame(
+        difficulty: Difficulty,
+        maxMistakes: Int = 3,
+        isTimerEnabled: Boolean = true,
+        gameMode: GameMode = GameMode.INSTANT,
+        language: Language = Language.JAPANESE
+    ) {
         val (puzzle, _) = generator.generateBoard(difficulty)
         _uiState.update {
             it.copy(
@@ -42,7 +50,9 @@ class GameViewModel : ViewModel() {
                 gameStatus = GameStatus.PLAYING,
                 selectedCell = null,
                 isTimerRunning = true,
-                isTimerEnabled = isTimerEnabled
+                isTimerEnabled = isTimerEnabled,
+                gameMode = gameMode,
+                language = language
             )
         }
         startTimer()
@@ -53,9 +63,10 @@ class GameViewModel : ViewModel() {
         timerJob = viewModelScope.launch {
             while (true) {
                 delay(1000)
-                if (_uiState.value.isTimerRunning && 
-                    _uiState.value.gameStatus == GameStatus.PLAYING && 
-                    _uiState.value.isTimerEnabled) {
+                if (_uiState.value.isTimerRunning &&
+                    _uiState.value.gameStatus == GameStatus.PLAYING &&
+                    _uiState.value.isTimerEnabled
+                ) {
                     _uiState.update { it.copy(timerSeconds = it.timerSeconds + 1) }
                 }
             }
@@ -74,7 +85,7 @@ class GameViewModel : ViewModel() {
         val (row, col) = selected
         val cell = state.board[row, col]
 
-        if (cell.isFixed || cell.userInput == cell.value) return
+        if (cell.isFixed) return
 
         // Handle Erase
         if (number == 0) {
@@ -93,17 +104,68 @@ class GameViewModel : ViewModel() {
             return
         }
 
-        val isCorrect = number == cell.value
-        val newMistakes = if (!isCorrect) state.mistakes + 1 else state.mistakes
-        
+        if (state.gameMode == GameMode.INSTANT) {
+            val isCorrect = number == cell.value
+            val newMistakes = if (!isCorrect) state.mistakes + 1 else state.mistakes
+
+            val newBoard = SudokuBoard(
+                state.board.cells.map { r ->
+                    r.map { c ->
+                        if (c.row == row && c.col == col) {
+                            c.copy(
+                                userInput = if (isCorrect) number else null,
+                                isError = !isCorrect
+                            )
+                        } else {
+                            c
+                        }
+                    }
+                }
+            )
+
+            val newStatus = when {
+                newMistakes >= state.maxMistakes -> GameStatus.LOST
+                checkWin(newBoard) -> GameStatus.WON
+                else -> GameStatus.PLAYING
+            }
+
+            _uiState.update {
+                it.copy(
+                    board = newBoard,
+                    mistakes = newMistakes,
+                    gameStatus = newStatus,
+                    isTimerRunning = newStatus == GameStatus.PLAYING
+                )
+            }
+        } else {
+            // Manual Mode: Just input the number
+            val newBoard = SudokuBoard(
+                state.board.cells.map { r ->
+                    r.map { c ->
+                        if (c.row == row && c.col == col) {
+                            c.copy(userInput = number, isError = false)
+                        } else {
+                            c
+                        }
+                    }
+                }
+            )
+            _uiState.update { it.copy(board = newBoard) }
+        }
+    }
+
+    fun submitBoard() {
+        val state = _uiState.value
+        if (state.gameMode != GameMode.MANUAL || state.gameStatus != GameStatus.PLAYING) return
+
+        var mistakes = 0
         val newBoard = SudokuBoard(
             state.board.cells.map { r ->
                 r.map { c ->
-                    if (c.row == row && c.col == col) {
-                        c.copy(
-                            userInput = if (isCorrect) number else null,
-                            isError = !isCorrect
-                        )
+                    if (!c.isFixed && c.userInput != null) {
+                        val isError = c.userInput != c.value
+                        if (isError) mistakes++
+                        c.copy(isError = isError)
                     } else {
                         c
                     }
@@ -111,16 +173,19 @@ class GameViewModel : ViewModel() {
             }
         )
 
+        val isAllFilled = newBoard.cells.all { r -> r.all { it.isFixed || it.userInput != null } }
+        val isNoErrors = newBoard.cells.all { r -> r.all { !it.isError } }
+
         val newStatus = when {
-            newMistakes >= state.maxMistakes -> GameStatus.LOST
-            checkWin(newBoard) -> GameStatus.WON
+            isAllFilled && isNoErrors -> GameStatus.WON
+            mistakes >= state.maxMistakes -> GameStatus.LOST
             else -> GameStatus.PLAYING
         }
 
         _uiState.update {
             it.copy(
                 board = newBoard,
-                mistakes = newMistakes,
+                mistakes = mistakes,
                 gameStatus = newStatus,
                 isTimerRunning = newStatus == GameStatus.PLAYING
             )
