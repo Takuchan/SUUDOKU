@@ -70,7 +70,9 @@ fun GameScreen(
                 mistakes = uiState.mistakes,
                 maxMistakes = uiState.maxMistakes,
                 difficulty = uiState.difficulty,
-                isTimerEnabled = uiState.isTimerEnabled
+                isTimerEnabled = uiState.isTimerEnabled,
+                language = uiState.language,
+                gameMode = uiState.gameMode
             )
 
             SudokuGrid(
@@ -107,11 +109,46 @@ fun GameScreen(
     }
 }
 
-fun getSubmitText(language: Language): String = when (language) {
-    Language.ENGLISH -> "Submit & Check"
+fun getLocalizedDifficulty(difficulty: Difficulty, language: Language) = when (difficulty) {
+    Difficulty.BEGINNER -> when (language) {
+        Language.ENGLISH -> "Beginner"
+        Language.JAPANESE -> "初級"
+        Language.CHINESE -> "初学者"
+        Language.KOREAN -> "초보자"
+    }
+    Difficulty.INTERMEDIATE -> when (language) {
+        Language.ENGLISH -> "Intermediate"
+        Language.JAPANESE -> "中級"
+        Language.CHINESE -> "中级"
+        Language.KOREAN -> "중급자"
+    }
+    Difficulty.ADVANCED -> when (language) {
+        Language.ENGLISH -> "Advanced"
+        Language.JAPANESE -> "上級"
+        Language.CHINESE -> "高级"
+        Language.KOREAN -> "상급자"
+    }
+}
+
+fun getMistakesLabel(language: Language) = when (language) {
+    Language.ENGLISH -> "Mistakes"
+    Language.JAPANESE -> "ミス"
+    Language.CHINESE -> "错误"
+    Language.KOREAN -> "실수"
+}
+
+fun getSubmissionMistakesLabel(language: Language) = when (language) {
+    Language.ENGLISH -> "Failed Submissions"
+    Language.JAPANESE -> "採点失敗"
+    Language.CHINESE -> "提交失败"
+    Language.KOREAN -> "제출 실패"
+}
+
+fun getSubmitText(language: Language) = when (language) {
+    Language.ENGLISH -> "Submit"
     Language.JAPANESE -> "採点する"
-    Language.CHINESE -> "提交并检查"
-    Language.KOREAN -> "제출 및 확인"
+    Language.CHINESE -> "提交"
+    Language.KOREAN -> "제출"
 }
 
 @Composable
@@ -120,7 +157,9 @@ fun GameHud(
     mistakes: Int,
     maxMistakes: Int,
     difficulty: Difficulty,
-    isTimerEnabled: Boolean
+    isTimerEnabled: Boolean,
+    language: Language,
+    gameMode: GameMode
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -134,17 +173,23 @@ fun GameHud(
         ) {
             Column {
                 Text(
-                    text = difficulty.name,
+                    text = getLocalizedDifficulty(difficulty, language),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.ExtraBold
                 )
+                val mistakesLabel = if (gameMode == GameMode.INSTANT) {
+                    getMistakesLabel(language)
+                } else {
+                    getSubmissionMistakesLabel(language)
+                }
                 Text(
-                    text = "Mistakes: $mistakes/$maxMistakes",
+                    text = "$mistakesLabel: $mistakes/$maxMistakes",
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (mistakes >= maxMistakes) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+// ...
             
             if (isTimerEnabled) {
                 val minutes = timerSeconds / 60

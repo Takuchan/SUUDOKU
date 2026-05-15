@@ -105,6 +105,9 @@ class GameViewModel : ViewModel() {
         }
 
         if (state.gameMode == GameMode.INSTANT) {
+            // If the same incorrect number is already there, don't penalize again
+            if (cell.userInput == number && cell.isError) return
+
             val isCorrect = number == cell.value
             val newMistakes = if (!isCorrect) state.mistakes + 1 else state.mistakes
 
@@ -113,7 +116,7 @@ class GameViewModel : ViewModel() {
                     r.map { c ->
                         if (c.row == row && c.col == col) {
                             c.copy(
-                                userInput = if (isCorrect) number else null,
+                                userInput = number,
                                 isError = !isCorrect
                             )
                         } else {
@@ -158,13 +161,13 @@ class GameViewModel : ViewModel() {
         val state = _uiState.value
         if (state.gameMode != GameMode.MANUAL || state.gameStatus != GameStatus.PLAYING) return
 
-        var mistakes = 0
+        var hasErrors = false
         val newBoard = SudokuBoard(
             state.board.cells.map { r ->
                 r.map { c ->
                     if (!c.isFixed && c.userInput != null) {
                         val isError = c.userInput != c.value
-                        if (isError) mistakes++
+                        if (isError) hasErrors = true
                         c.copy(isError = isError)
                     } else {
                         c
@@ -174,18 +177,20 @@ class GameViewModel : ViewModel() {
         )
 
         val isAllFilled = newBoard.cells.all { r -> r.all { it.isFixed || it.userInput != null } }
-        val isNoErrors = newBoard.cells.all { r -> r.all { !it.isError } }
+        val isNoErrors = !hasErrors
 
+        val newMistakes = if (hasErrors) state.mistakes + 1 else state.mistakes
+        
         val newStatus = when {
             isAllFilled && isNoErrors -> GameStatus.WON
-            mistakes >= state.maxMistakes -> GameStatus.LOST
+            newMistakes >= state.maxMistakes -> GameStatus.LOST
             else -> GameStatus.PLAYING
         }
 
         _uiState.update {
             it.copy(
                 board = newBoard,
-                mistakes = mistakes,
+                mistakes = newMistakes,
                 gameStatus = newStatus,
                 isTimerRunning = newStatus == GameStatus.PLAYING
             )
@@ -212,7 +217,13 @@ class GameViewModel : ViewModel() {
 
     fun resetGame() {
         val state = _uiState.value
-        startGame(state.difficulty, state.maxMistakes, state.isTimerEnabled)
+        startGame(
+            difficulty = state.difficulty,
+            maxMistakes = state.maxMistakes,
+            isTimerEnabled = state.isTimerEnabled,
+            gameMode = state.gameMode,
+            language = state.language
+        )
     }
 
     override fun onCleared() {
