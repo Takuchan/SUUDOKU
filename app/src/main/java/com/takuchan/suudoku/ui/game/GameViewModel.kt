@@ -1,0 +1,157 @@
+package com.takuchan.suudoku.ui.game
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.takuchan.suudoku.logic.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+data class GameUiState(
+    val board: SudokuBoard = SudokuBoard(emptyList()),
+    val selectedCell: Pair<Int, Int>? = null,
+    val mistakes: Int = 0,
+    val maxMistakes: Int = 3,
+    val timerSeconds: Long = 0,
+    val gameStatus: GameStatus = GameStatus.PLAYING,
+    val difficulty: Difficulty = Difficulty.BEGINNER,
+    val isTimerRunning: Boolean = false,
+    val isTimerEnabled: Boolean = true
+)
+
+class GameViewModel : ViewModel() {
+    private val _uiState = MutableStateFlow(GameUiState())
+    val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
+
+    private val generator = SudokuGenerator()
+    private var timerJob: Job? = null
+
+    fun startGame(difficulty: Difficulty, maxMistakes: Int = 3, isTimerEnabled: Boolean = true) {
+        val (puzzle, _) = generator.generateBoard(difficulty)
+        _uiState.update {
+            it.copy(
+                board = puzzle,
+                difficulty = difficulty,
+                maxMistakes = maxMistakes,
+                mistakes = 0,
+                timerSeconds = 0,
+                gameStatus = GameStatus.PLAYING,
+                selectedCell = null,
+                isTimerRunning = true,
+                isTimerEnabled = isTimerEnabled
+            )
+        }
+        startTimer()
+    }
+
+    private fun startTimer() {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                if (_uiState.value.isTimerRunning && 
+                    _uiState.value.gameStatus == GameStatus.PLAYING && 
+                    _uiState.value.isTimerEnabled) {
+                    _uiState.update { it.copy(timerSeconds = it.timerSeconds + 1) }
+                }
+            }
+        }
+    }
+
+    fun onCellSelected(row: Int, col: Int) {
+        if (_uiState.value.gameStatus != GameStatus.PLAYING) return
+        _uiState.update { it.copy(selectedCell = row to col) }
+    }
+
+    fun onNumberInput(number: Int) {
+        val state = _uiState.value
+        if (state.gameStatus != GameStatus.PLAYING) return
+        val selected = state.selectedCell ?: return
+        val (row, col) = selected
+        val cell = state.board[row, col]
+
+        if (cell.isFixed || cell.userInput == cell.value) return
+
+        // Handle Erase
+        if (number == 0) {
+            val newBoard = SudokuBoard(
+                state.board.cells.map { r ->
+                    r.map { c ->
+                        if (c.row == row && c.col == col) {
+                            c.copy(userInput = null, isError = false)
+                        } else {
+                            c
+                        }
+                    }
+                }
+            )
+            _uiState.update { it.copy(board = newBoard) }
+            return
+        }
+
+        val isCorrect = number == cell.value
+        val newMistakes = if (!isCorrect) state.mistakes + 1 else state.mistakes
+        
+        val newBoard = SudokuBoard(
+            state.board.cells.map { r ->
+                r.map { c ->
+                    if (c.row == row && c.col == col) {
+                        c.copy(
+                            userInput = if (isCorrect) number else null,
+                            isError = !isCorrect
+                        )
+                    } else {
+                        c
+                    }
+                }
+            }
+        )
+
+        val newStatus = when {
+            newMistakes >= state.maxMistakes -> GameStatus.LOST
+            checkWin(newBoard) -> GameStatus.WON
+            else -> GameStatus.PLAYING
+        }
+
+        _uiState.update {
+            it.copy(
+                board = newBoard,
+                mistakes = newMistakes,
+                gameStatus = newStatus,
+                isTimerRunning = newStatus == GameStatus.PLAYING
+            )
+        }
+    }
+
+    private fun checkWin(board: SudokuBoard): Boolean {
+        return board.cells.all { row ->
+            row.all { cell ->
+                cell.isFixed || cell.userInput == cell.value
+            }
+        }
+    }
+
+    fun pauseGame() {
+        _uiState.update { it.copy(isTimerRunning = false) }
+    }
+
+    fun resumeGame() {
+        if (_uiState.value.gameStatus == GameStatus.PLAYING) {
+            _uiState.update { it.copy(isTimerRunning = true) }
+        }
+    }
+
+    fun resetGame() {
+        val state = _uiState.value
+        startGame(state.difficulty, state.maxMistakes, state.isTimerEnabled)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        timerJob?.cancel()
+    }
+}

@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Sudoku Grid Symbol -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M35,35h38v38h-38z M37,37h34v34h-34z" />
+
+    <!-- Vertical Lines -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M47,37h1v34h-1z M60,37h1v34h-1z" />
+
+    <!-- Horizontal Lines -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M37,47h34v1h-34z M37,60h34v1h-34z" />
+
+    <!-- A vibrant number '3' to represent SUUDOKU -->
+    <path
+        android:fillColor="#03DAC6"
+        android:pathData="M51,49h6c1,0 2,1 2,2s-1,2 -2,2h-4h4c1,0 2,1 2,2s-1,2 -2,2h-6v-2h6v-2h-4v-2h4v-2h-6z" />
+</vector>

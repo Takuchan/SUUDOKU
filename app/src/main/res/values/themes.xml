@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.SUUDOKU" parent="Theme.MaterialComponents.Light" />
+</resources>
