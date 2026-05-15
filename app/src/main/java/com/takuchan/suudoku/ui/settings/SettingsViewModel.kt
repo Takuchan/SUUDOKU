@@ -1,12 +1,12 @@
 package com.takuchan.suudoku.ui.settings
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.takuchan.suudoku.logic.GameMode
 import com.takuchan.suudoku.logic.Language
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import com.takuchan.suudoku.logic.SettingsRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 data class SettingsState(
     val isTimerEnabled: Boolean = true,
@@ -15,23 +15,46 @@ data class SettingsState(
     val language: Language = Language.JAPANESE
 )
 
-class SettingsViewModel : ViewModel() {
+class SettingsViewModel(private val repository: SettingsRepository) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsState())
     val uiState: StateFlow<SettingsState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            repository.settingsFlow.collect { settings ->
+                _uiState.update {
+                    it.copy(
+                        isTimerEnabled = settings.isTimerEnabled,
+                        maxMistakes = settings.maxMistakes,
+                        gameMode = settings.gameMode,
+                        language = settings.language
+                    )
+                }
+            }
+        }
+    }
+
     fun toggleTimer(enabled: Boolean) {
-        _uiState.update { it.copy(isTimerEnabled = enabled) }
+        viewModelScope.launch {
+            repository.updateTimerEnabled(enabled)
+        }
     }
 
     fun setMaxMistakes(count: Int) {
-        _uiState.update { it.copy(maxMistakes = count.coerceIn(1, 10)) }
+        viewModelScope.launch {
+            repository.updateMaxMistakes(count.coerceIn(1, 10))
+        }
     }
 
     fun setGameMode(mode: GameMode) {
-        _uiState.update { it.copy(gameMode = mode) }
+        viewModelScope.launch {
+            repository.updateGameMode(mode)
+        }
     }
 
     fun setLanguage(language: Language) {
-        _uiState.update { it.copy(language = language) }
+        viewModelScope.launch {
+            repository.updateLanguage(language)
+        }
     }
 }
